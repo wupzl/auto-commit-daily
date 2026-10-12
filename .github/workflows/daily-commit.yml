@@ -1,0 +1,49 @@
+name: Daily auto commit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/daily-commit.yml"
+  schedule:
+    - cron: "0 0 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-auto-commit
+  cancel-in-progress: false
+
+jobs:
+  auto-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Create and push commits
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          git config user.name "wupzl"
+          git config user.email "166399732+wupzl@users.noreply.github.com"
+          git pull --rebase origin main
+
+          if [[ "$EVENT_NAME" == "schedule" ]] && (( RANDOM % 5 == 0 )); then
+            echo "Randomly skipped today (approximately 20% probability)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          count=$((1 + RANDOM % 3))
+          for ((i=1; i<=count; i++)); do
+            git commit --allow-empty -m "Auto commit workflows"
+          done
+          git push origin HEAD:main
+          echo "Successfully pushed $count commit(s) to main." >> "$GITHUB_STEP_SUMMARY"
